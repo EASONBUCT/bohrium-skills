@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TranslatePaperOutput",
+  "description": "Bilingual translation produced by scripts/build_translation.py",
+  "type": "object",
+  "required": ["schema", "terminology", "segments"],
+  "properties": {
+    "schema": {"type": "string"},
+    "source_language": {"type": "string"},
+    "target_language": {"type": "string"},
+    "terminology": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "target"],
+        "properties": {
+          "source": {"type": "string"},
+          "target": {"type": "string"},
+          "first_seen": {"type": "string"}
+        }
+      }
+    },
+    "segments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["para_id", "source", "translation"],
+        "properties": {
+          "para_id": {"type": "string"},
+          "source": {"type": "string"},
+          "translation": {"type": "string"},
+          "notes": {"type": "string"}
+        }
+      }
+    },
+    "untranslated_segments": {"type": "array", "items": {"type": "string"}},
+    "verification": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "para_id": {"type": "string"},
+          "numbers_ok": {"type": "boolean"},
+          "units_ok": {"type": "boolean"},
+          "citations_ok": {"type": "boolean"},
+          "negation_ok": {"type": "boolean"}
+        }
+      }
+    },
+    "unclear": {"type": "array", "items": {"type": "string"}}
+  }
+}
