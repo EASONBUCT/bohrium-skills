@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NanopubOutput",
+  "description": "Machine-readable nanopublications produced by scripts/build_nanopubs.py",
+  "type": "object",
+  "required": ["schema", "source", "nanopubs"],
+  "properties": {
+    "schema": {"type": "string"},
+    "source": {
+      "type": "object",
+      "properties": {
+        "title": {"type": "string"},
+        "authors": {"type": "string"},
+        "year": {"type": ["string", "integer"]},
+        "version": {"type": "string"},
+        "doi": {"type": "string"},
+        "data_source": {"type": "string"}
+      }
+    },
+    "nanopubs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "assertion", "evidence"],
+        "properties": {
+          "id": {"type": "string"},
+          "assertion": {
+            "type": "object",
+            "required": ["subject", "predicate", "object"],
+            "properties": {
+              "subject": {"type": "string"},
+              "predicate": {"type": "string"},
+              "object": {"type": "string"},
+              "condition": {"type": "string"},
+              "scope": {"type": "string"}
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["quote", "location", "strength"],
+              "properties": {
+                "quote": {"type": "string"},
+                "location": {"type": "string"},
+                "strength": {"enum": ["direct", "inferred"]}
+              }
+            }
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "source": {"type": "object"}
+            }
+          },
+          "publication_info": {
+            "type": "object",
+            "properties": {
+              "asserted_by": {"type": "string"},
+              "timestamp": {"type": "string"},
+              "license": {"type": "string"},
+              "version": {"type": "string"}
+            }
+          },
+          "confidence": {
+            "type": "object",
+            "properties": {
+              "basis": {"type": "string"},
+              "value": {"enum": ["high", "medium", "low"]}
+            }
+          }
+        }
+      }
+    },
+    "quality": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "issue": {"enum": ["too-broad", "unsupported", "conflict", "missing-source", "other"]},
+          "reason": {"type": "string"}
+        }
+      }
+    }
+  }
+}
