@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EvidenceMap",
+  "description": "Page-level evidence mapping emitted next to the deck",
+  "type": "object",
+  "required": ["case_id", "paper_title", "slides"],
+  "properties": {
+    "case_id": {"type": "string"},
+    "paper_title": {"type": "string"},
+    "slides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["index", "claim", "evidence"],
+        "properties": {
+          "index": {"type": "integer"},
+          "claim": {"type": "string"},
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["ref", "kind", "page"],
+              "properties": {
+                "ref": {"type": "string"},
+                "kind": {"enum": ["figure", "table", "equation", "section", "data"]},
+                "page": {"type": "integer"},
+                "caption": {"type": "string"},
+                "quote": {"type": "string"}
+              }
+            }
+          },
+          "speaker_note": {"type": "string"}
+        }
+      }
+    }
+  }
+}
