@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NoteBuilderOutput",
+  "description": "Structured notes produced by scripts/build_notes.py",
+  "type": "object",
+  "required": ["schema", "paper_card", "sections", "knowledge_points"],
+  "properties": {
+    "schema": {"type": "string"},
+    "paper_card": {
+      "type": "object",
+      "properties": {
+        "title": {"type": "string"},
+        "authors": {"type": "string"},
+        "research_question": {"type": "string"},
+        "data": {"type": "string"},
+        "methods": {"type": "string"},
+        "conditions": {"type": "string"},
+        "main_findings": {"type": "array", "items": {"type": "string"}},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "summary"],
+        "properties": {
+          "id": {"type": "string"},
+          "title": {"type": "string"},
+          "summary": {"type": "string"},
+          "anchors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "section": {"type": "string"},
+                "page": {"type": "integer"},
+                "paragraph_id": {"type": "string"},
+                "quote": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "knowledge_points": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "label"],
+        "properties": {
+          "id": {"type": "string"},
+          "type": {"enum": ["concept", "variable", "method", "conclusion"]},
+          "label": {"type": "string"},
+          "aliases": {"type": "array", "items": {"type": "string"}},
+          "definition": {"type": "string"},
+          "anchors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "section": {"type": "string"},
+                "page": {"type": "integer"},
+                "paragraph_id": {"type": "string"},
+                "quote": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
