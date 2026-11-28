@@ -109,6 +109,14 @@ def classify_block(text):
     return "paragraph"
 
 
+def is_table(lines):
+    """A block is a table if several lines share 2+ whitespace-separated columns."""
+    if len(lines) < 3:
+        return False
+    cells = [len(re.split(r"\s{2,}", ln.strip())) for ln in lines if ln.strip()]
+    return len(cells) >= 3 and all(c >= 2 for c in cells) and sum(c >= 3 for c in cells) >= 2
+
+
 def parse_raw_text(raw, source):
     blocks = []
     bid = 0
@@ -118,9 +126,16 @@ def parse_raw_text(raw, source):
         cur = []
         def flush():
             nonlocal bid
-            text = " ".join(cur).strip()
+            if not cur:
+                return
+            if is_table(cur):
+                text = " | ".join(ln.strip() for ln in cur)
+                btype = "table"
+            else:
+                text = " ".join(ln.strip() for ln in cur).strip()
+                btype = classify_block(text)
             if text:
-                blocks.append({"block_id": "b%d" % bid, "page": pno, "type": classify_block(text), "text": text})
+                blocks.append({"block_id": "b%d" % bid, "page": pno, "type": btype, "text": text})
                 bid += 1
             cur.clear()
         for ln in lines:
