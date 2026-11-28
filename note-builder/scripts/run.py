@@ -104,41 +104,94 @@ def pid_of(p, i):
     return "para-%d" % i
 
 
+MATERIAL_NAMES = ("material.json", "primary-material.json", "secondary-material.json",
+                  "paper.json", "manuscript.json", "document.json", "content.json",
+                  "paragraphs.json", "sections.json")
+
+
+def _extract_paragraphs(node, out):
+    """Recursively pull substantial paragraph texts out of a JSON tree,
+    preserving section headings so section alignment survives."""
+    if isinstance(node, list):
+        for item in node:
+            _extract_paragraphs(item, out)
+    elif isinstance(node, dict):
+        # section node: heading + a children key
+        heading = None
+        for hk in ("heading", "section", "title", "label", "name"):
+            v = node.get(hk)
+            if isinstance(v, str) and v.strip():
+                heading = v.strip()
+                break
+        children_key = next((k for k in ("paragraphs", "items", "content", "body", "children")
+                             if k in node), None)
+        if heading and children_key:
+            out.append({"paragraph_id": pid_of(node, len(out)), "text": heading})
+            _extract_paragraphs(node[children_key], out)
+            return
+        t = text_of(node)
+        if t.strip() and len(t.strip()) >= 25:
+            out.append({"paragraph_id": pid_of(node, len(out)), "text": t.strip()})
+            return  # a paragraph node: do not double-count its children
+        for k in ("paragraphs", "sections", "items", "content", "body", "children"):
+            if k in node:
+                _extract_paragraphs(node[k], out)
+
+
 def load_paragraphs(files):
-    paras = []
+    # 1. known material filenames first
+    for name in MATERIAL_NAMES:
+        if name in files:
+            data = _loadj(files[name])
+            out = []
+            _extract_paragraphs(data, out)
+            if out:
+                return out
+    # 2. any JSON with substantial text, ranked by total length; skip manifests
+    ranked = []
     for fname, path in files.items():
-        if fname.endswith(".json") and fname != "case.json":
-            data = _loadj(path)
-            for i, p in enumerate(as_list(data)):
-                t = text_of(p)
-                if t.strip():
-                    paras.append({"paragraph_id": pid_of(p, i), "text": t})
-            if paras:
-                break
-    if not paras:
-        for fname, path in files.items():
-            if fname.endswith(".pdf"):
-                tool = shutil.which("pdftotext") or "pdftotext"
-                txt = os.path.join(args_out_tmp(), "extracted.txt")
-                try:
-                    subprocess.run([tool, "-layout", path, txt], check=True,
-                                   capture_output=True, timeout=120)
-                    raw = _read(txt)
-                except Exception:
-                    raw = ""
-                for i, blk in enumerate(re.split(r"\n\s*\n", raw)):
-                    if blk.strip():
-                        paras.append({"paragraph_id": "p%d" % i, "text": blk.strip()})
-                break
-    if not paras:
-        for fname, path in files.items():
-            if fname.endswith((".txt", ".md")):
-                raw = _read(path)
-                for i, blk in enumerate(re.split(r"\n\s*\n", raw)):
-                    if blk.strip():
-                        paras.append({"paragraph_id": "p%d" % i, "text": blk.strip()})
-                break
-    return paras
+        if (not fname.endswith(".json")) or fname in ("case.json", "corpus-manifest.json",
+                                                       "manifest.json", "metadata.json"):
+            continue
+        data = _loadj(path)
+        out = []
+        _extract_paragraphs(data, out)
+        total = sum(len(p["text"]) for p in out)
+        if total:
+            ranked.append((total, out))
+    if ranked:
+        ranked.sort(key=lambda x: -x[0])
+        return ranked[0][1]
+    # 3. PDF
+    for fname, path in files.items():
+        if fname.endswith(".pdf"):
+            tool = shutil.which("pdftotext") or "pdftotext"
+            txt = os.path.join(args_out_tmp(), "extracted.txt")
+            try:
+                subprocess.run([tool, "-layout", path, txt], check=True,
+                               capture_output=True, timeout=120)
+                raw = _read(txt)
+            except Exception:
+                raw = ""
+            out = []
+            for i, blk in enumerate(re.split(r"\n\s*\n", raw)):
+                if blk.strip():
+                    out.append({"paragraph_id": "p%d" % i, "text": blk.strip()})
+            if out:
+                return out
+            break
+    # 4. txt/md
+    for fname, path in files.items():
+        if fname.endswith((".txt", ".md")):
+            raw = _read(path)
+            out = []
+            for i, blk in enumerate(re.split(r"\n\s*\n", raw)):
+                if blk.strip():
+                    out.append({"paragraph_id": "p%d" % i, "text": blk.strip()})
+            if out:
+                return out
+            break
+    return []
 
 
 def args_out_tmp():
