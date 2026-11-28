@@ -179,13 +179,30 @@ def extract_acronyms(text):
 
 
 def extract_candidate_terms(text):
-    """Deterministic fallback entity candidates: acronyms + capitalized terms."""
+    """Deterministic entity candidates with an inferred type."""
     cands = []
     for a in extract_acronyms(text):
-        cands.append(a["label"])
+        cands.append({"label": a["label"], "type": "term", "full": a["full"]})
     for m in re.finditer(r"\b[A-Z][a-z]+(?:[ \-][A-Z][a-z]+){1,3}\b", text):
-        cands.append(m.group(0))
+        cands.append({"label": m.group(0), "type": "method"})
+    for m in re.finditer(r"\b\d+(?:\.\d+)?\s*(?:%|nm|µm|°C|mm|kg|g|s|ms|mL|mol|Hz|GHz|m|cm)\b", text):
+        cands.append({"label": m.group(0), "type": "metric"})
     return cands
+
+
+RELATION_VERBS = {
+    "uses": "uses", "use": "uses", "used": "uses", "utilizes": "uses", "utilized": "uses",
+    "improves": "improves", "improve": "improves", "improved": "improves",
+    "reduces": "reduces", "reduce": "reduces", "reduced": "reduces",
+    "outperforms": "outperforms", "outperform": "outperforms", "outperformed": "outperforms",
+    "compares": "compared_with", "compared": "compared_with",
+    "achieves": "achieves", "achieve": "achieves", "achieved": "achieves",
+    "shows": "shows", "show": "shows", "showed": "shows",
+    "requires": "requires", "require": "requires",
+    "proposes": "proposes", "propose": "proposes", "proposed": "proposes",
+    "applies": "applied_to", "applied": "applied_to",
+    "increases": "increases", "increase": "increases", "increased": "increases",
+}
 
 
 def build_nodes(paras, annotations):
@@ -220,9 +237,9 @@ def build_nodes(paras, annotations):
 
     # Deterministic fallback: terms from each paragraph, so the graph is never empty.
     for p in paras:
-        for term in extract_candidate_terms(p["text"])[:6]:
-            add_node(term, "term", p["source_id"], p["paragraph_id"],
-                     quote_of(p["text"], term))
+        for term in extract_candidate_terms(p["text"])[:8]:
+            add_node(term["label"], term["type"], p["source_id"], p["paragraph_id"],
+                     quote_of(p["text"], term["label"]))
     return nodes
 
 
@@ -256,7 +273,36 @@ def build_edges(nodes, paras, annotations):
                       "paragraph_id": e.get("paragraph_id", s["paragraph_id"]),
                       "quote": e.get("quote", "")})
 
-    # Deterministic fallback: co-occurrence within the same paragraph.
+    # Deterministic fallback: verb-typed relations between co-occurring entities.
+    if not edges:
+        for p in paras:
+            ns = [n for n in nodes if n["source_id"] == p["source_id"]
+                  and n["paragraph_id"] == p["paragraph_id"]]
+            if len(ns) < 2:
+                continue
+            labels = {n["label"].lower(): n for n in ns}
+            text = p["text"]
+            for verb, rtype in RELATION_VERBS.items():
+                for m in re.finditer(r"\b" + re.escape(verb) + r"\b", text, re.I):
+                    before = text[:m.start()].lower()
+                    after = text[m.end():].lower()
+                    subj = obj = None
+                    for lbl in sorted(labels, key=len, reverse=True):
+                        if lbl in before:
+                            subj = labels[lbl]
+                            break
+                    for lbl in sorted(labels, key=len, reverse=True):
+                        if lbl in after and labels[lbl]["id"] != (subj["id"] if subj else None):
+                            obj = labels[lbl]
+                            break
+                    if subj and obj:
+                        edges.append({"id": "e%d" % len(edges), "source": subj["id"],
+                                      "target": obj["id"], "type": rtype,
+                                      "direction": "forward", "condition": "",
+                                      "source_id": p["source_id"], "paragraph_id": p["paragraph_id"],
+                                      "quote": text[max(0, m.start() - 30):m.end() + 50].strip()})
+                        break  # one relation per verb occurrence
+    # Backup: co-occurrence within the same paragraph.
     if not edges:
         by_para = {}
         for n in nodes:
