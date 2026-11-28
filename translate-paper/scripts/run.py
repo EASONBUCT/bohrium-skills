@@ -148,6 +148,18 @@ def extract_terms(paras):
     for t, c in freq.items():
         if c >= 2:
             terms.setdefault(t, {"source": t, "target": "", "first_seen": ""})
+    # repeated multi-word lowercase noun phrases (frequency-based)
+    stop = {"the", "and", "of", "in", "to", "for", "with", "that", "this", "these",
+            "are", "was", "were", "from", "their", "its", "has", "have", "been"}
+    freq_lower = {}
+    for m in re.finditer(r"\b[a-z]+(?:[ \-][a-z]+){1,2}\b", all_text):
+        t = m.group(0).lower()
+        if t in stop:
+            continue
+        freq_lower[t] = freq_lower.get(t, 0) + 1
+    for t, c in freq_lower.items():
+        if c >= 3:
+            terms.setdefault(t, {"source": t, "target": "", "first_seen": ""})
     return list(terms.values())
 
 
