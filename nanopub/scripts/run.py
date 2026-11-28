@@ -142,6 +142,34 @@ def split_sentences(text):
     return [p.strip() for p in parts if p.strip()]
 
 
+SPO_VERBS = ("are", "is", "were", "was", "have", "has", "shows", "show", "showed",
+             "improves", "improve", "improved", "reduces", "reduce", "reduced",
+             "uses", "use", "used", "achieves", "achieve", "achieved",
+             "proposes", "propose", "proposed", "increases", "increase", "increased",
+             "requires", "require", "required", "outperforms", "outperform",
+             "outperformed", "demonstrates", "demonstrate", "demonstrated",
+             "indicates", "indicate", "indicated")
+
+
+def extract_spo(sentence):
+    """Deterministic subject–predicate–object split on the first content verb."""
+    s = sentence.strip().rstrip(".,;。，；")
+    for verb in SPO_VERBS:
+        m = re.search(r"\b" + verb + r"\b", s, re.I)
+        if m:
+            subj = s[:m.start()].strip(" -")
+            obj = s[m.end():].strip(" -")
+            if subj and obj:
+                return subj, m.group(0), obj
+    return "", "", s
+
+
+def split_compound(text):
+    """Split compound/coordinated sentences into finer assertions."""
+    parts = re.split(r"\.\s+(?=[A-Z])|\;\s+|(?<=[a-z])\s+and\s+(?=[A-Z][a-z])", text)
+    return [p.strip() for p in parts if len(p.strip()) > 8]
+
+
 def paper_meta(files, case):
     m = _loadj(files.get("corpus-manifest.json", ""))
     if isinstance(m, list) and m and isinstance(m[0], dict):
@@ -196,18 +224,22 @@ def main(argv=None):
             "confidence": a.get("confidence", ""),
         })
 
-    # Deterministic fallback: every sentence is a candidate assertion.
+    # Deterministic fallback: every (possibly compound) sentence is a candidate
+    # assertion with a subject–predicate–object split.
     for p in paras:
         for s in split_sentences(p["text"]):
-            if s in used_anno:
-                continue
-            nanopubs.append({
-                "id": "np%d" % len(nanopubs),
-                "assertion": {"subject": "", "predicate": "", "object": "", "text": s},
-                "evidence": {"quote": s, "location": p["paragraph_id"]},
-                "provenance": meta,
-                "confidence": "",
-            })
+            for clause in split_compound(s):
+                if clause in used_anno:
+                    continue
+                subj, pred, obj = extract_spo(clause)
+                nanopubs.append({
+                    "id": "np%d" % len(nanopubs),
+                    "assertion": {"subject": subj, "predicate": pred, "object": obj,
+                                  "text": clause},
+                    "evidence": {"quote": clause, "location": p["paragraph_id"]},
+                    "provenance": meta,
+                    "confidence": "machine" if subj else "",
+                })
 
     export = {
         "schema": "nanopub/v2",
